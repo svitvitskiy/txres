@@ -87,7 +87,7 @@ public class HaarTx {
                     sum += (!patrn[c][i][j] ? 0xff : -0xff) * patch[i][j];
                 }
             }
-            coeff[c] = (int) (sum >> 10);
+            coeff[c] = (int) (sum >> 8);
         }
         return coeff;
     }
@@ -104,7 +104,8 @@ public class HaarTx {
         }
         for (int i = 0; i < txH; i++) {
             for (int j = 0; j < txW; j++) {
-                reconst[i][j] >>= 12;
+                reconst[i][j] /= txH * txW;
+                reconst[i][j] >>= 8;
             }
         }
         return reconst;

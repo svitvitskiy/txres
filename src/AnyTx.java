@@ -110,6 +110,10 @@ public class AnyTx {
         scan = new int[nPat];
         generateScan(txSize + 1, scan, 0,0, txW);
         patrn = generatePatrn(txSize, txType);
+        if(!check()) {
+            System.out.println("CRAP");
+            System.exit(-1);
+        }
     }
     int[] forward(int[][] patch) {
         int txW = 4 << txSize;
@@ -128,7 +132,7 @@ public class AnyTx {
                     sum += patrn[c][i][j] * (patch[i][j] - 128)*2;
                 }
             }
-            coeff[c] = (int) (sum >> 10);
+            coeff[c] = (int) (sum >> 8);
         }
         return coeff;
     }
@@ -137,17 +141,67 @@ public class AnyTx {
         int txH = 4 << txSize;
         int[][] reconst = new int[txH][txW];
         for (int c = 0; c < patrn.length; c++) {
+            int p = scan[c];
+            int px = p % txW;
+            int py = p / txW;
             for (int i = 0; i < txH; i++) {
                 for (int j = 0; j < txW; j++) {
-                    reconst[i][j] += coeff[c] * ((patrn[c][i][j] + 256) / 2);
+                    reconst[i][j] += coeff[c] * patrn[c][i][j] * (px == 0 ? 1 : 2) * (py == 0 ? 1 : 2);
                 }
             }
         }
         for (int i = 0; i < txH; i++) {
             for (int j = 0; j < txW; j++) {
-                reconst[i][j] >>= 10;
+                int val = reconst[i][j] >> 8;
+                val /= txW * txH;
+                reconst[i][j] = (val + 256) / 2;
             }
         }
         return reconst;
+    }
+    double angle(int[] v0, int[] v1) {
+        // angle through dotproduct
+        long sum0 = 0, sum1 = 0, sum2 = 0;
+        for (int i = 0; i < v0.length; i++) {
+            sum0 += v0[i] * v1[i];
+            sum1 += v0[i] * v0[i];
+            sum2 += v1[i] * v1[i];
+        }
+        double acos = Math.acos(sum0 / Math.sqrt(sum1*sum2));
+        return acos;
+    }
+    boolean orthogonal(int[] v0, int[] v1) {
+        return angle(v0, v1) == Math.PI / 2;
+    }
+
+    int[] flatten2D(int[][] arr) {
+        int count = 0;
+        for (int i = 0; i < arr.length; i++) {
+            count += arr[i].length;
+        }
+        int[] result = new int[count];
+        for (int i = 0, cnt = 0; i < arr.length; i++) {
+            for (int j = 0; j < arr[i].length; j++) {
+                result[cnt++] = arr[i][j];
+            }
+        }
+        return result;
+    }
+
+    boolean check() {
+        double epsilon = Math.PI / 180; // +-1 degree is fine
+        // checks if this transform is orthogonal by checking each pair of vectors
+        // to make sure they are orthogonal
+        boolean a = true;
+        for (int i = 0; i < patrn.length; i++) {
+            for (int j = i + 1; j < patrn.length; j++) {
+                double angle = angle(flatten2D(patrn[i]), flatten2D(patrn[j]));
+//                if (angle > (Math.PI/2 + epsilon) || angle < (Math.PI/2 - epsilon)) {
+//                    System.out.println("" + (i % 8) + "," + (i / 8) + " vs " + (j % 8) + "," + (j / 8) + ": " + (Math.PI / 2 - angle) * 180 / Math.PI);
+//                }
+                a = a && ((angle < Math.PI/2 + epsilon) && (angle > Math.PI/2 - epsilon));
+            }
+        }
+        return a;
     }
 }
